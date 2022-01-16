@@ -25,6 +25,7 @@ public static class ApiEndpoints
     public static IServiceCollection AddTodoApi(this IServiceCollection services)
     {
         services.AddSingleton<IClock>(_ => SystemClock.Instance);
+        services.AddSingleton<RateLimiter>();
         services.AddScoped<ITodoRepository, TodoRepository>();
         services.AddScoped<ITodoService, TodoService>();
 
@@ -50,6 +51,8 @@ public static class ApiEndpoints
             options.UseSqlite("Data Source=" + databaseFile);
         });
 
+        services.AddMemoryCache();
+
         return services;
     }
 
@@ -62,13 +65,18 @@ public static class ApiEndpoints
     /// </returns>
     public static IEndpointRouteBuilder MapTodoApiRoutes(this IEndpointRouteBuilder builder)
     {
+        const string ReadOperation = "Read";
+        const string WriteOperation = "Write";
+
         // Get all Todo items
         builder.MapGet("/api/items", async (
-            ITodoService service,
             ClaimsPrincipal user,
+            ITodoService service,
+            RateLimiter rateLimiter,
             CancellationToken cancellationToken) =>
             {
-                return await service.GetListAsync(user.GetUserId(), cancellationToken);
+                return await rateLimiter.LimitAsync(user.GetUserId(), ReadOperation, async userId =>
+                    Results.Ok(await service.GetListAsync(userId, cancellationToken)));
             })
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .RequireAuthorization();
@@ -78,10 +86,14 @@ public static class ApiEndpoints
             Guid id,
             ClaimsPrincipal user,
             ITodoService service,
+            RateLimiter rateLimiter,
             CancellationToken cancellationToken) =>
             {
-                var model = await service.GetAsync(user.GetUserId(), id, cancellationToken);
-                return model is null ? Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound) : Results.Json(model);
+                return await rateLimiter.LimitAsync(user.GetUserId(), ReadOperation, async userId =>
+                {
+                    var model = await service.GetAsync(userId, id, cancellationToken);
+                    return model is null ? Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound) : Results.Json(model);
+                });
             })
             .Produces<TodoItemModel>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -93,6 +105,7 @@ public static class ApiEndpoints
             CreateTodoItemModel model,
             ClaimsPrincipal user,
             ITodoService service,
+            RateLimiter rateLimiter,
             CancellationToken cancellationToken) =>
             {
                 if (string.IsNullOrWhiteSpace(model.Text))
@@ -100,9 +113,11 @@ public static class ApiEndpoints
                     return Results.Problem("No item text specified.", statusCode: StatusCodes.Status400BadRequest);
                 }
 
-                var id = await service.AddItemAsync(user.GetUserId(), model.Text, cancellationToken);
-
-                return Results.Created($"/api/items/{id}", new { id });
+                return await rateLimiter.LimitAsync(user.GetUserId(), WriteOperation, async userId =>
+                {
+                    var id = await service.AddItemAsync(userId, model.Text, cancellationToken);
+                    return Results.Created($"/api/items/{id}", new { id });
+                });
             })
             .Produces(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -114,16 +129,20 @@ public static class ApiEndpoints
             Guid id,
             ClaimsPrincipal user,
             ITodoService service,
+            RateLimiter rateLimiter,
             CancellationToken cancellationToken) =>
             {
-                var wasCompleted = await service.CompleteItemAsync(user.GetUserId(), id, cancellationToken);
-
-                return wasCompleted switch
+                return await rateLimiter.LimitAsync(user.GetUserId(), WriteOperation, async userId =>
                 {
-                    true => Results.NoContent(),
-                    false => Results.Problem("Item already completed.", statusCode: StatusCodes.Status400BadRequest),
-                    _ => Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound),
-                };
+                    var wasCompleted = await service.CompleteItemAsync(userId, id, cancellationToken);
+
+                    return wasCompleted switch
+                    {
+                        true => Results.NoContent(),
+                        false => Results.Problem("Item already completed.", statusCode: StatusCodes.Status400BadRequest),
+                        _ => Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound),
+                    };
+                });
             })
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -136,10 +155,14 @@ public static class ApiEndpoints
             Guid id,
             ClaimsPrincipal user,
             ITodoService service,
+            RateLimiter rateLimiter,
             CancellationToken cancellationToken) =>
             {
-                var wasDeleted = await service.DeleteItemAsync(user.GetUserId(), id, cancellationToken);
-                return wasDeleted ? Results.NoContent() : Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound);
+                return await rateLimiter.LimitAsync(user.GetUserId(), WriteOperation, async userId =>
+                {
+                    var wasDeleted = await service.DeleteItemAsync(userId, id, cancellationToken);
+                    return wasDeleted ? Results.NoContent() : Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound);
+                });
             })
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status404NotFound)

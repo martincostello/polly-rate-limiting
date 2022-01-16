@@ -7,12 +7,14 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using TodoApp.Models;
 
 namespace TodoApp;
 
 [Collection(TodoAppCollection.Name)]
-public class ApiTests
+public class ApiTests : IAsyncLifetime
 {
     public ApiTests(TodoAppFixture fixture, ITestOutputHelper outputHelper)
     {
@@ -26,6 +28,19 @@ public class ApiTests
     private TodoAppFixture Fixture { get; }
 
     private ITestOutputHelper OutputHelper { get; }
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync()
+    {
+        // Clear any cached rate limits after each test
+        if (Fixture.Services.GetRequiredService<IMemoryCache>() is MemoryCache cache)
+        {
+            cache.Compact(100);
+        }
+
+        return Task.CompletedTask;
+    }
 
     [Fact]
     public async Task Can_Manage_Todo_Items_With_Api()
@@ -123,6 +138,38 @@ public class ApiTests
         problem.Title.ShouldBe("Not Found");
         problem.Detail.ShouldBe("Item not found.");
         problem.Type.ShouldBe("https://tools.ietf.org/html/rfc7231#section-6.5.4");
+        problem.Instance.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Cannot_Make_Too_Many_Requests()
+    {
+        // Arrange
+        var client = await CreateAuthenticatedClientAsync();
+
+        try
+        {
+            for (int i = 0; i < 20; i++)
+            {
+                await client.GetFromJsonAsync<TodoListViewModel>("/api/items");
+            }
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            // Ignore exception, we expect to start being rate limited
+        }
+
+        // Act
+        using var response = await client.GetAsync("/api/items");
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
+
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+
+        problem.ShouldNotBeNull();
+        problem.Status.ShouldBe(StatusCodes.Status429TooManyRequests);
+        problem.Detail.ShouldBe("Too many requests.");
         problem.Instance.ShouldBeNull();
     }
 
