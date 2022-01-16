@@ -91,9 +91,15 @@ export class TodoApp {
             this.hide(this.elements.banner);
             this.show(this.elements.itemTable);
 
-        } catch {
+        } catch (err) {
             // Re-enable adding this item if it failed
-            this.enable(this.elements.createItemButton);
+            if (err instanceof Error && err.message === '429') {
+                window.setTimeout(() => {
+                    this.enable(this.elements.createItemButton);
+                }, 2000);
+            } else {
+                this.enable(this.elements.createItemButton);
+            }
         } finally {
             this.enable(this.elements.createItemText);
             this.elements.createItemText.focus();
