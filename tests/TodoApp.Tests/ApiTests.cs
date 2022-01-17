@@ -169,8 +169,13 @@ public class ApiTests : IAsyncLifetime
 
         problem.ShouldNotBeNull();
         problem.Status.ShouldBe(StatusCodes.Status429TooManyRequests);
+        problem.Title.ShouldBe("Too Many Requests");
         problem.Detail.ShouldBe("Too many requests.");
         problem.Instance.ShouldBeNull();
+
+        response.Headers.RetryAfter.ShouldNotBeNull();
+        response.Headers.RetryAfter.Delta.ShouldNotBeNull();
+        response.Headers.RetryAfter.Delta.Value.ShouldBeGreaterThan(TimeSpan.Zero);
     }
 
     [Fact]

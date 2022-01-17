@@ -27,9 +27,9 @@ public sealed class RateLimiter
         {
             return await rateLimit.ExecuteAsync(() => action(userId));
         }
-        catch (RateLimitRejectedException)
+        catch (RateLimitRejectedException ex)
         {
-            return Results.Problem("Too many requests.", statusCode: StatusCodes.Status429TooManyRequests);
+            return Results.Extensions.RateLimited(ex.RetryAfter);
         }
     }
 
