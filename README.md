@@ -7,7 +7,7 @@
 ## Introduction
 
 A sample application using ASP.NET Core Minimal APIs that demonstrates usage of
-the [Rate-Limit policy] available in [Polly] version 7.3.0 and later.
+the [Rate-Limit policy] available in [Polly] version 7.2.3 and later.
 
 [Polly]: https://www.nuget.org/packages/Polly/
 [Rate-Limit policy]: https://github.com/App-vNext/Polly#rate-limit
