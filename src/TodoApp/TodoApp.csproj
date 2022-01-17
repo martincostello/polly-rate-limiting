@@ -13,7 +13,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="6.0.1" />
     <PackageReference Include="Microsoft.TypeScript.MSBuild" Version="4.5.3" PrivateAssets="all" />
     <PackageReference Include="NodaTime" Version="3.0.9" />
-    <PackageReference Include="Polly" Version="7.2.3-v723-or-v730-0001" />
+    <PackageReference Include="Polly" Version="7.2.3" />
   </ItemGroup>
   <ItemGroup>
     <None Remove="scripts\ts\**\*.ts" />
