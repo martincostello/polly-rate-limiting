@@ -53,6 +53,6 @@ public sealed class RateLimiter
             return Policy
                 .RateLimitAsync(numberOfExecutions, perTimeSpan, maxBurst)
                 .WithPolicyKey($"{operation} rate-limit for user {userId}");
-        });
+        })!;
     }
 }
