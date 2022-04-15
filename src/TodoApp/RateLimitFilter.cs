@@ -5,11 +5,11 @@ using Microsoft.Extensions.Caching.Memory;
 using Polly;
 using Polly.RateLimit;
 
-namespace TodoApp.Services;
+namespace TodoApp;
 
-public sealed class RateLimiter
+public sealed class RateLimitFilter : IRouteHandlerFilter
 {
-    public RateLimiter(IConfiguration configuration, IMemoryCache cache)
+    public RateLimitFilter(IConfiguration configuration, IMemoryCache cache)
     {
         Configuration = configuration;
         Cache = cache;
@@ -19,13 +19,16 @@ public sealed class RateLimiter
 
     private IConfiguration Configuration { get; }
 
-    public async Task<IResult> LimitAsync(string userId, string operation, Func<string, Task<IResult>> action)
+    public async ValueTask<object?> InvokeAsync(RouteHandlerInvocationContext context, RouteHandlerFilterDelegate next)
     {
+        var userId = context.HttpContext.User.GetUserId();
+        var operation = HttpMethods.IsGet(context.HttpContext.Request.Method) ? "Read" : "Write";
+
         var rateLimit = GetRateLimitPolicy(userId, operation);
 
         try
         {
-            return await rateLimit.ExecuteAsync(() => action(userId));
+            return await rateLimit.ExecuteAsync(async () => await next(context));
         }
         catch (RateLimitRejectedException ex)
         {
