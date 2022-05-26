@@ -2,8 +2,6 @@
 
 [![Build status](https://github.com/martincostello/polly-rate-limiting/workflows/build/badge.svg?branch=main&event=push)](https://github.com/martincostello/polly-rate-limiting/actions?query=workflow%3Abuild+branch%3Amain+event%3Apush)
 
-[![Open in Visual Studio Code](https://open.vscode.dev/badges/open-in-vscode.svg)](https://open.vscode.dev/martincostello/polly-rate-limiting)
-
 ## Introduction
 
 A sample application using ASP.NET Core Minimal APIs that demonstrates usage of
