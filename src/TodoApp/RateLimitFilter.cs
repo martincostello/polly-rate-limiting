@@ -7,7 +7,7 @@ using Polly.RateLimit;
 
 namespace TodoApp;
 
-public sealed class RateLimitFilter : IRouteHandlerFilter
+public sealed class RateLimitFilter : IEndpointFilter
 {
     public RateLimitFilter(IConfiguration configuration, IMemoryCache cache)
     {
@@ -19,7 +19,7 @@ public sealed class RateLimitFilter : IRouteHandlerFilter
 
     private IConfiguration Configuration { get; }
 
-    public async ValueTask<object?> InvokeAsync(RouteHandlerInvocationContext context, RouteHandlerFilterDelegate next)
+    public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var userId = context.HttpContext.User.GetUserId();
         var operation = HttpMethods.IsGet(context.HttpContext.Request.Method) ? "Read" : "Write";
