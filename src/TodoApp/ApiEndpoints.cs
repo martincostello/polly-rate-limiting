@@ -72,7 +72,7 @@ public static class ApiEndpoints
             {
                 return Results.Ok(await service.GetListAsync(user.GetUserId(), cancellationToken));
             })
-            .AddRouteHandlerFilter<RateLimitFilter>()
+            .AddEndpointFilter<RateLimitFilter>()
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .RequireAuthorization();
 
@@ -86,7 +86,7 @@ public static class ApiEndpoints
                 var model = await service.GetAsync(user.GetUserId(), id, cancellationToken);
                 return model is null ? Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound) : Results.Json(model);
             })
-            .AddRouteHandlerFilter<RateLimitFilter>()
+            .AddEndpointFilter<RateLimitFilter>()
             .Produces<TodoItemModel>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
@@ -107,7 +107,7 @@ public static class ApiEndpoints
                 var id = await service.AddItemAsync(user.GetUserId(), model.Text, cancellationToken);
                 return Results.Created($"/api/items/{id}", new { id });
             })
-            .AddRouteHandlerFilter<RateLimitFilter>()
+            .AddEndpointFilter<RateLimitFilter>()
             .Produces(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
@@ -129,7 +129,7 @@ public static class ApiEndpoints
                     _ => Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound),
                 };
             })
-            .AddRouteHandlerFilter<RateLimitFilter>()
+            .AddEndpointFilter<RateLimitFilter>()
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -146,7 +146,7 @@ public static class ApiEndpoints
                 var wasDeleted = await service.DeleteItemAsync(user.GetUserId(), id, cancellationToken);
                 return wasDeleted ? Results.NoContent() : Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound);
             })
-            .AddRouteHandlerFilter<RateLimitFilter>()
+            .AddEndpointFilter<RateLimitFilter>()
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
