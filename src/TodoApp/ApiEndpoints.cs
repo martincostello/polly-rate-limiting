@@ -64,93 +64,88 @@ public static class ApiEndpoints
     /// </returns>
     public static IEndpointRouteBuilder MapTodoApiRoutes(this IEndpointRouteBuilder builder)
     {
-        // Get all Todo items
-        builder.MapGet("/api/items", async (
-            ClaimsPrincipal user,
-            ITodoService service,
-            CancellationToken cancellationToken) =>
-            {
-                return Results.Ok(await service.GetListAsync(user.GetUserId(), cancellationToken));
-            })
-            .AddEndpointFilter<RateLimitFilter>()
-            .ProducesProblem(StatusCodes.Status429TooManyRequests)
-            .RequireAuthorization();
-
-        // Get a specific Todo item
-        builder.MapGet("/api/items/{id}", async (
-            Guid id,
-            ClaimsPrincipal user,
-            ITodoService service,
-            CancellationToken cancellationToken) =>
-            {
-                var model = await service.GetAsync(user.GetUserId(), id, cancellationToken);
-                return model is null ? Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound) : Results.Json(model);
-            })
-            .AddEndpointFilter<RateLimitFilter>()
-            .Produces<TodoItemModel>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests)
-            .RequireAuthorization();
-
-        // Create a new Todo item
-        builder.MapPost("/api/items", async (
-            CreateTodoItemModel model,
-            ClaimsPrincipal user,
-            ITodoService service,
-            CancellationToken cancellationToken) =>
-            {
-                if (string.IsNullOrWhiteSpace(model.Text))
+        var group = builder.MapGroup("/api/items")
+                           .AddEndpointFilter<RateLimitFilter>()
+                           .RequireAuthorization();
+        {
+            // Get all Todo items
+            group.MapGet("/", async (
+                ClaimsPrincipal user,
+                ITodoService service,
+                CancellationToken cancellationToken) =>
                 {
-                    return Results.Problem("No item text specified.", statusCode: StatusCodes.Status400BadRequest);
-                }
+                    return Results.Ok(await service.GetListAsync(user.GetUserId(), cancellationToken));
+                })
+                .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
-                var id = await service.AddItemAsync(user.GetUserId(), model.Text, cancellationToken);
-                return Results.Created($"/api/items/{id}", new { id });
-            })
-            .AddEndpointFilter<RateLimitFilter>()
-            .Produces(StatusCodes.Status201Created)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests)
-            .RequireAuthorization();
-
-        // Mark a Todo item as completed
-        builder.MapPost("/api/items/{id}/complete", async (
-            Guid id,
-            ClaimsPrincipal user,
-            ITodoService service,
-            CancellationToken cancellationToken) =>
-            {
-                var wasCompleted = await service.CompleteItemAsync(user.GetUserId(), id, cancellationToken);
-
-                return wasCompleted switch
+            // Get a specific Todo item
+            group.MapGet("/{id}", async (
+                Guid id,
+                ClaimsPrincipal user,
+                ITodoService service,
+                CancellationToken cancellationToken) =>
                 {
-                    true => Results.NoContent(),
-                    false => Results.Problem("Item already completed.", statusCode: StatusCodes.Status400BadRequest),
-                    _ => Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound),
-                };
-            })
-            .AddEndpointFilter<RateLimitFilter>()
-            .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests)
-            .RequireAuthorization();
+                    var model = await service.GetAsync(user.GetUserId(), id, cancellationToken);
+                    return model is null ? Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound) : Results.Json(model);
+                })
+                .Produces<TodoItemModel>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
-        // Delete a Todo item
-        builder.MapDelete("/api/items/{id}", async (
-            Guid id,
-            ClaimsPrincipal user,
-            ITodoService service,
-            CancellationToken cancellationToken) =>
-            {
-                var wasDeleted = await service.DeleteItemAsync(user.GetUserId(), id, cancellationToken);
-                return wasDeleted ? Results.NoContent() : Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound);
-            })
-            .AddEndpointFilter<RateLimitFilter>()
-            .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests)
-            .RequireAuthorization();
+            // Create a new Todo item
+            group.MapPost("/", async (
+                CreateTodoItemModel model,
+                ClaimsPrincipal user,
+                ITodoService service,
+                CancellationToken cancellationToken) =>
+                {
+                    if (string.IsNullOrWhiteSpace(model.Text))
+                    {
+                        return Results.Problem("No item text specified.", statusCode: StatusCodes.Status400BadRequest);
+                    }
+
+                    var id = await service.AddItemAsync(user.GetUserId(), model.Text, cancellationToken);
+                    return Results.Created($"/api/items/{id}", new { id });
+                })
+                .Produces(StatusCodes.Status201Created)
+                .ProducesProblem(StatusCodes.Status400BadRequest)
+                .ProducesProblem(StatusCodes.Status429TooManyRequests);
+
+            // Mark a Todo item as completed
+            group.MapPost("/{id}/complete", async (
+                Guid id,
+                ClaimsPrincipal user,
+                ITodoService service,
+                CancellationToken cancellationToken) =>
+                {
+                    var wasCompleted = await service.CompleteItemAsync(user.GetUserId(), id, cancellationToken);
+
+                    return wasCompleted switch
+                    {
+                        true => Results.NoContent(),
+                        false => Results.Problem("Item already completed.", statusCode: StatusCodes.Status400BadRequest),
+                        _ => Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound),
+                    };
+                })
+                .Produces(StatusCodes.Status204NoContent)
+                .ProducesProblem(StatusCodes.Status400BadRequest)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status429TooManyRequests);
+
+            // Delete a Todo item
+            group.MapDelete("/{id}", async (
+                Guid id,
+                ClaimsPrincipal user,
+                ITodoService service,
+                CancellationToken cancellationToken) =>
+                {
+                    var wasDeleted = await service.DeleteItemAsync(user.GetUserId(), id, cancellationToken);
+                    return wasDeleted ? Results.NoContent() : Results.Problem("Item not found.", statusCode: StatusCodes.Status404NotFound);
+                })
+                .Produces(StatusCodes.Status204NoContent)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status429TooManyRequests);
+        }
 
         return builder;
     }
