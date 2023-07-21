@@ -4,11 +4,14 @@ on:
   push:
     branches: [ main ]
     paths-ignore:
-    - '**/*.md'
-    - '**/*.gitignore'
-    - '**/*.gitattributes'
+      - '**/*.md'
+      - '**/*.gitignore'
+      - '**/*.gitattributes'
   pull_request:
-    branches: [ main, dotnet-vnext ]
+    branches:
+      - main
+      - dotnet-vnext
+      - dotnet-nightly
   workflow_dispatch:
 
 jobs:
