@@ -14,15 +14,8 @@ public static class ResultExtensions
         return new RateLimitedResult(retryAfter);
     }
 
-    private sealed class RateLimitedResult : IResult
+    private sealed class RateLimitedResult(TimeSpan retryAfter) : IResult
     {
-        private readonly TimeSpan _retryAfter;
-
-        public RateLimitedResult(TimeSpan retryAfter)
-        {
-            _retryAfter = retryAfter;
-        }
-
         public Task ExecuteAsync(HttpContext httpContext)
         {
             var value = new ProblemDetails
@@ -32,7 +25,7 @@ public static class ResultExtensions
                 Status = StatusCodes.Status429TooManyRequests,
             };
 
-            int retryAfterSeconds = Math.Max(1, (int)_retryAfter.TotalSeconds);
+            int retryAfterSeconds = Math.Max(1, (int)retryAfter.TotalSeconds);
 
             httpContext.Response.StatusCode = value.Status.Value;
             httpContext.Response.Headers["Retry-After"] = retryAfterSeconds.ToString(CultureInfo.InvariantCulture);
