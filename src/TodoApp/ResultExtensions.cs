@@ -28,7 +28,7 @@ public static class ResultExtensions
             int retryAfterSeconds = Math.Max(1, (int)retryAfter.TotalSeconds);
 
             httpContext.Response.StatusCode = value.Status.Value;
-            httpContext.Response.Headers["Retry-After"] = retryAfterSeconds.ToString(CultureInfo.InvariantCulture);
+            httpContext.Response.Headers.RetryAfter = retryAfterSeconds.ToString(CultureInfo.InvariantCulture);
 
             return httpContext.Response.WriteAsJsonAsync(value, value.GetType(), options: null, contentType: "application/problem+json");
         }
