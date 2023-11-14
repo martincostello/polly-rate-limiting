@@ -2,21 +2,10 @@
 // Licensed under the Apache 2.0 license. See the LICENSE file in the project root for full license information.
 
 using Microsoft.EntityFrameworkCore;
-using NodaTime;
 
 namespace TodoApp.Data;
-public sealed class TodoRepository : ITodoRepository
+public sealed class TodoRepository(TimeProvider timeProvider, TodoContext context) : ITodoRepository
 {
-    public TodoRepository(IClock clock, TodoContext context)
-    {
-        Clock = clock;
-        Context = context;
-    }
-
-    private IClock Clock { get; }
-
-    private TodoContext Context { get; }
-
     public async Task<TodoItem> AddItemAsync(
         string userId,
         string text,
@@ -31,9 +20,9 @@ public sealed class TodoRepository : ITodoRepository
             UserId = userId
         };
 
-        Context.Add(item);
+        context.Add(item);
 
-        await Context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
 
         return item;
     }
@@ -57,9 +46,9 @@ public sealed class TodoRepository : ITodoRepository
 
         item.CompletedAt = UtcNow();
 
-        Context.Items.Update(item);
+        context.Items.Update(item);
 
-        await Context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
 
         return true;
     }
@@ -76,9 +65,9 @@ public sealed class TodoRepository : ITodoRepository
             return false;
         }
 
-        Context.Items.Remove(item);
+        context.Items.Remove(item);
 
-        await Context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
 
         return true;
     }
@@ -90,7 +79,7 @@ public sealed class TodoRepository : ITodoRepository
     {
         await EnsureDatabaseAsync(cancellationToken);
 
-        var item = await Context.Items.FindItemAsync(itemId, cancellationToken);
+        var item = await context.Items.FindItemAsync(itemId, cancellationToken);
 
         if (item is null || !string.Equals(item.UserId, userId, StringComparison.Ordinal))
         {
@@ -106,7 +95,7 @@ public sealed class TodoRepository : ITodoRepository
     {
         await EnsureDatabaseAsync(cancellationToken);
 
-        return await Context.Items
+        return await context.Items
             .Where(x => x.UserId == userId)
             .OrderBy(x => x.CompletedAt.HasValue)
             .ThenBy(x => x.CreatedAt)
@@ -114,7 +103,7 @@ public sealed class TodoRepository : ITodoRepository
     }
 
     private async Task EnsureDatabaseAsync(CancellationToken cancellationToken)
-        => await Context.Database.EnsureCreatedAsync(cancellationToken);
+        => await context.Database.EnsureCreatedAsync(cancellationToken);
 
-    private DateTime UtcNow() => Clock.GetCurrentInstant().ToDateTimeUtc();
+    private DateTime UtcNow() => timeProvider.GetUtcNow().UtcDateTime;
 }
